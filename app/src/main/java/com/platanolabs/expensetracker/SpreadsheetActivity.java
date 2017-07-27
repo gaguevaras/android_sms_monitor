@@ -372,10 +372,12 @@ public class SpreadsheetActivity extends Activity
 
         private void writeSpreadsheetData() throws IOException {
             String spreadsheetId = "1nRcSu_SUITgEhragqWQhwqjaxtDQalrGw7H9G9Gi5eY";
-            String range = "Sheet2!A1:A3";
+            String range = "Sheet2!A:A";
             Object[] names= {"Ankit","Bohra","Xyz"};
+            Object[] latinNames= {"Gustavo","Elias","Diego"};
             List<List<Object>> values = Arrays.asList(
-                    Arrays.asList(names)
+                    Arrays.asList(names),
+                    Arrays.asList(latinNames)
                     // Additional rows ...
             );
             ValueRange body = new ValueRange()
