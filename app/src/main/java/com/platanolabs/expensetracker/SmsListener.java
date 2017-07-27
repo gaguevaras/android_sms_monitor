@@ -9,12 +9,15 @@ import android.telephony.SmsMessage;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+
 import java.io.FileOutputStream;
 
 public class SmsListener extends BroadcastReceiver {
 
     // Get the object of SmsManager
     final SmsManager sms = SmsManager.getDefault();
+    GoogleAccountCredential mCredential;
 
     public void onReceive(Context context, Intent intent) {
 
@@ -46,15 +49,24 @@ public class SmsListener extends BroadcastReceiver {
 
                         // Show Alert
                         int duration = Toast.LENGTH_LONG;
-                        Toast toast = Toast.makeText(context,
-                                "senderNum: "+ senderNum + ", message: " + message, duration);
+                        Toast toast = Toast.makeText(
+                            context,
+                            "senderNum: " + senderNum + ", message: " + message,
+                            duration
+                        );
                         toast.show();
+                        Intent spreadsheetIntent = new Intent();
+                        spreadsheetIntent.putExtra("message", message);
+                        spreadsheetIntent.putExtra("sender", senderNum);
+                        spreadsheetIntent.setClassName("com.platanolabs.expensetracker", "com.platanolabs.expensetracker.SpreadsheetActivity");
+                        spreadsheetIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(spreadsheetIntent);
                     }
                 } // end for loop
             } // bundle is null
 
         } catch (Exception e) {
-            Log.e("SmsReceiver", "Exception smsReceiver" +e);
+            Log.e("SmsReceiver", "Exception smsReceiver" + e);
 
         }
     }
