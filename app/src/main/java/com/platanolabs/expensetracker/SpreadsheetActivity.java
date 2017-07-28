@@ -30,13 +30,13 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -86,7 +86,7 @@ public class SpreadsheetActivity extends Activity
 //            public void onClick(View v) {
 //                mCallApiButton.setEnabled(false);
 //                mOutputText.setText("");
-//                getResultsFromApi();
+//                writeExpenseToGSheet();
 //                mCallApiButton.setEnabled(true);
 //            }
 //        });
@@ -110,9 +110,17 @@ public class SpreadsheetActivity extends Activity
         mCredential = GoogleAccountCredential.usingOAuth2(
                 getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
-        String someValue = getIntent().getExtras().getString("diego");
-        getResultsFromApi();
+        String smsMessage = getIntent().getExtras().getString("message");
+        String sender = getIntent().getExtras().getString("sender");
+
+        buildAndSaveExpense(sender, smsMessage);
     }
+
+    private void buildAndSaveExpense(String senderNum, String smsMessage) {
+        Expense expense = new Expense(smsMessage);
+        writeExpenseToGSheet(expense);
+    }
+
 
 
 
@@ -123,15 +131,15 @@ public class SpreadsheetActivity extends Activity
      * of the preconditions are not satisfied, the app will prompt the user as
      * appropriate.
      */
-    private void getResultsFromApi() {
+    private void writeExpenseToGSheet(Expense expense) {
         if (! isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (mCredential.getSelectedAccountName() == null) {
-            chooseAccount();
+            chooseAccount(expense);
         } else if (! isDeviceOnline()) {
             mOutputText.setText("No network connection available.");
         } else {
-            new MakeRequestTask(mCredential).execute();
+            new MakeRequestTask(mCredential).execute(expense);
         }
     }
 
@@ -146,14 +154,14 @@ public class SpreadsheetActivity extends Activity
      * is granted.
      */
     @AfterPermissionGranted(REQUEST_PERMISSION_GET_ACCOUNTS)
-    private void chooseAccount() {
+    private void chooseAccount(Expense expense) {
         if (EasyPermissions.hasPermissions(
                 this, Manifest.permission.GET_ACCOUNTS)) {
             String accountName = getPreferences(Context.MODE_PRIVATE)
                     .getString(PREF_ACCOUNT_NAME, null);
             if (accountName != null) {
                 mCredential.setSelectedAccountName(accountName);
-                getResultsFromApi();
+                writeExpenseToGSheet(expense);
             } else {
                 // Start a dialog from which the user can choose an account
                 startActivityForResult(
@@ -191,7 +199,7 @@ public class SpreadsheetActivity extends Activity
                             "This app requires Google Play Services. Please install " +
                                     "Google Play Services on your device and relaunch this app.");
                 } else {
-                    getResultsFromApi();
+                    writeExpenseToGSheet(new Expense());
                 }
                 break;
             case REQUEST_ACCOUNT_PICKER:
@@ -206,13 +214,13 @@ public class SpreadsheetActivity extends Activity
                         editor.putString(PREF_ACCOUNT_NAME, accountName);
                         editor.apply();
                         mCredential.setSelectedAccountName(accountName);
-                        getResultsFromApi();
+                        writeExpenseToGSheet(new Expense());
                     }
                 }
                 break;
             case REQUEST_AUTHORIZATION:
                 if (resultCode == RESULT_OK) {
-                    getResultsFromApi();
+                    writeExpenseToGSheet(new Expense());
                 }
                 break;
         }
@@ -318,7 +326,7 @@ public class SpreadsheetActivity extends Activity
      * An asynchronous task that handles the Google Sheets API call.
      * Placing the API calls in their own task ensures the UI stays responsive.
      */
-    private class MakeRequestTask extends AsyncTask<Void, Void, List<String>> {
+    private class MakeRequestTask extends AsyncTask<Expense, Void, List<String>> {
         private com.google.api.services.sheets.v4.Sheets mService = null;
         private Exception mLastError = null;
 
@@ -336,15 +344,18 @@ public class SpreadsheetActivity extends Activity
          * @param params no parameters needed for this task.
          */
         @Override
-        protected List<String> doInBackground(Void... params) {
+        protected List<String> doInBackground(Expense... params) {
             try {
-                writeSpreadsheetData();
-                return getDataFromApi();
+                writeExpenseToSpreadsheet(params[0]);
+                List<String> list = new ArrayList<String>();
+                list.add("Updated!");
+                return list;
             } catch (Exception e) {
                 mLastError = e;
                 cancel(true);
                 return null;
             }
+
         }
 
         /**
@@ -370,14 +381,19 @@ public class SpreadsheetActivity extends Activity
             return results;
         }
 
-        private void writeSpreadsheetData() throws IOException {
+        private void writeExpenseToSpreadsheet(Expense expense) throws IOException {
             String spreadsheetId = "1nRcSu_SUITgEhragqWQhwqjaxtDQalrGw7H9G9Gi5eY";
             String range = "Sheet2!A:A";
-            Object[] names= {"Ankit","Bohra","Xyz"};
-            Object[] latinNames= {"Gustavo","Elias","Diego"};
+            Object[] names= {
+                    expense.getType(),
+                    expense.getAmount(),
+                    expense.getVendor(),
+                    expense.getReportedTime(),
+                    expense.getMeanOfPayment(),
+                    expense.getReceivedTime().toString()
+            };
             List<List<Object>> values = Arrays.asList(
-                    Arrays.asList(names),
-                    Arrays.asList(latinNames)
+                    Arrays.asList(names)
                     // Additional rows ...
             );
             ValueRange body = new ValueRange()
