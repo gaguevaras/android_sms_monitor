@@ -97,8 +97,7 @@ public class SpreadsheetActivity extends Activity
         mOutputText.setPadding(16, 16, 16, 16);
         mOutputText.setVerticalScrollBarEnabled(true);
         mOutputText.setMovementMethod(new ScrollingMovementMethod());
-        mOutputText.setText(
-                "Click the \'" + BUTTON_TEXT +"\' button to test the API.");
+        mOutputText.setText("Click the \'" + BUTTON_TEXT +"\' button to test the API.");
         activityLayout.addView(mOutputText);
 
         mProgress = new ProgressDialog(this);
@@ -107,11 +106,17 @@ public class SpreadsheetActivity extends Activity
         setContentView(activityLayout);
 
         // Initialize credentials and service object.
-        mCredential = GoogleAccountCredential.usingOAuth2(
-                getApplicationContext(), Arrays.asList(SCOPES))
+        mCredential = GoogleAccountCredential
+                .usingOAuth2(getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
-        String smsMessage = getIntent().getExtras().getString("message");
-        String sender = getIntent().getExtras().getString("sender");
+        chooseAccount();
+
+        String smsMessage = "";
+        String sender = "";
+        if (getIntent() != null && getIntent().getExtras() != null) {
+            smsMessage = getIntent().getExtras().getString("message");
+            sender = getIntent().getExtras().getString("sender");
+        }
 
         buildAndSaveExpense(sender, smsMessage);
     }
@@ -120,9 +125,6 @@ public class SpreadsheetActivity extends Activity
         Expense expense = new Expense(smsMessage);
         writeExpenseToGSheet(expense);
     }
-
-
-
 
     /**
      * Attempt to call the API, after verifying that all the preconditions are
@@ -135,7 +137,8 @@ public class SpreadsheetActivity extends Activity
         if (! isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (mCredential.getSelectedAccountName() == null) {
-            chooseAccount(expense);
+            chooseAccount();
+//            new MakeRequestTask(mCredential).execute(expense);
         } else if (! isDeviceOnline()) {
             mOutputText.setText("No network connection available.");
         } else {
@@ -154,14 +157,13 @@ public class SpreadsheetActivity extends Activity
      * is granted.
      */
     @AfterPermissionGranted(REQUEST_PERMISSION_GET_ACCOUNTS)
-    private void chooseAccount(Expense expense) {
+    private void chooseAccount() {
         if (EasyPermissions.hasPermissions(
                 this, Manifest.permission.GET_ACCOUNTS)) {
             String accountName = getPreferences(Context.MODE_PRIVATE)
                     .getString(PREF_ACCOUNT_NAME, null);
             if (accountName != null) {
                 mCredential.setSelectedAccountName(accountName);
-                writeExpenseToGSheet(expense);
             } else {
                 // Start a dialog from which the user can choose an account
                 startActivityForResult(
@@ -272,8 +274,7 @@ public class SpreadsheetActivity extends Activity
      * @return true if the device has a network connection, false otherwise.
      */
     private boolean isDeviceOnline() {
-        ConnectivityManager connMgr =
-                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
         return (networkInfo != null && networkInfo.isConnected());
     }
@@ -284,10 +285,8 @@ public class SpreadsheetActivity extends Activity
      *     date on this device; false otherwise.
      */
     private boolean isGooglePlayServicesAvailable() {
-        GoogleApiAvailability apiAvailability =
-                GoogleApiAvailability.getInstance();
-        final int connectionStatusCode =
-                apiAvailability.isGooglePlayServicesAvailable(this);
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        final int connectionStatusCode = apiAvailability.isGooglePlayServicesAvailable(this);
         return connectionStatusCode == ConnectionResult.SUCCESS;
     }
 
@@ -396,12 +395,11 @@ public class SpreadsheetActivity extends Activity
                     Arrays.asList(names)
                     // Additional rows ...
             );
-            ValueRange body = new ValueRange()
-                    .setValues(values);
-            AppendValuesResponse result =
-                    this.mService.spreadsheets().values().append(spreadsheetId, range, body)
-                            .setValueInputOption("RAW")
-                            .execute();
+            ValueRange body = new ValueRange().setValues(values);
+            AppendValuesResponse result = this.mService.spreadsheets().values()
+                    .append(spreadsheetId, range, body)
+                    .setValueInputOption("RAW")
+                    .execute();
         }
 
 
